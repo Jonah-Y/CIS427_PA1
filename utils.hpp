@@ -1,8 +1,6 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 #include <sqlite3.h>
-#include <string>
-
 
 /** Callback function for the sqlite database.
  *  Prints each record processed in each SELECT statement executed within the SQL argument.
@@ -24,6 +22,8 @@ int buy_command(int socket, char* request, sqlite3* db);
 
 int sell_command(int socket, char* request, sqlite3* db);
 
+
+static int list_callback(void *data, int argc, char **argv, char **azColName);
 
 int list_command(int socket, char* request, sqlite3* db);
 
