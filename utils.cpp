@@ -299,6 +299,7 @@ int buy_command(int socket, char* request, sqlite3* db) {
         }
     }
 
+    // Respond successful operation
     snprintf(response, sizeof(response),
              "200 OK\nBOUGHT: New balance: %.2f %s. USD balance $%.2f\n",
              shares_owned + num_shares_to_buy, stock_symbol, user_balance);
@@ -307,23 +308,137 @@ int buy_command(int socket, char* request, sqlite3* db) {
     return 0;
 }
 
-
+/** Sells an amount of stock and responds to the client with the new balance. */
 int sell_command(int socket, char* request, sqlite3* db) {
+    // parse input string
+    char *saveptr = nullptr;
+    char *sell = strtok_r(request, " ", &saveptr);
+    char *stock_symbol = strtok_r(nullptr, " ", &saveptr);
+    char *amount_str = strtok_r(nullptr, " ", &saveptr);
+    char *price_str = strtok_r(nullptr, " ", &saveptr);
+    char *user_id_str = strtok_r(nullptr, " ", &saveptr);
 
-    // TODO
+    char response[256];
+    char sql[256];
+    int rc;
+    char *zErrMsg = 0;
+
+    // check for format errors
+    if (!sell || !stock_symbol || !amount_str || !price_str || !user_id_str) {
+        fprintf(stderr, "SELL command received but incorrectly formatted\n");
+        fprintf(stderr, "Error message sent to client\n");
+        snprintf(response, sizeof(response),
+                 "403 message format error\nCorrect format: SELL <stock_symbol> <amount_to_sell> <price_per_stock> <user_id>\n");
+        send(socket, response, strlen(response), 0);
+        return -1;
+    }
+
+    // convert numeric values from char* to numbers
+    double num_shares_to_sell;
+    double price_per_stock;
+    int user_id;
+    try {
+        num_shares_to_sell = stod(amount_str); // throws exception if conversion fails
+        price_per_stock = stod(price_str);
+        user_id = stoi(user_id_str);
+    } catch (const std::exception&) {
+        fprintf(stderr, "Amount, price, or user_id are not valid numbers\n");
+        fprintf(stderr, "Error message sent to client\n");
+        snprintf(response, sizeof(response),
+                 "403 message format error\nAmount, price, user_id fields must be numbers.\n");
+        send(socket, response, strlen(response), 0);
+        return -1;
+    }
+
+    if (num_shares_to_sell <= 0 || price_per_stock <= 0) {
+        fprintf(stderr, "Amount or price are invalid because they are <= 0\n");
+        fprintf(stderr, "Error message sent to client\n");
+        snprintf(response, sizeof(response),
+                 "403 message format error\nAmount and price fields must be positive and non-zero.\n");
+        send(socket, response, strlen(response), 0);
+        return -1;
+    }
+
+    // calculate price of sold shares
+    double shares_sold_USD = num_shares_to_sell * price_per_stock;
+
+    // check if the stock is in the database and if so get the balance
+    double shares_owned = -1;
+
+    snprintf(sql, sizeof(sql),
+            "SELECT stock_balance FROM Stocks WHERE stock_symbol='%s' AND user_id=%d", stock_symbol, user_id);
+    
+    rc = sqlite3_exec(db, sql, getBalance_callback, &shares_owned, &zErrMsg);
+
+    if (rc != SQLITE_OK) {
+        handle_SQL_error(socket, zErrMsg);
+        return -1;
+    }
+    if (shares_owned < 0) {
+        snprintf(response, sizeof(response), "404 user %d does not own %s\n", user_id, stock_symbol);
+        fprintf(stderr, "%sError message sent to client\n", response);
+        send(socket, response, strlen(response), 0);
+        return -1;
+    }
+    if (shares_owned < num_shares_to_sell) {
+        snprintf(response, sizeof(response),
+                 "403 User has a insufficient shares of %.2f for a transaction of selling %.2f shares\n",
+                 shares_owned, num_shares_to_sell);
+        fprintf(stderr, "%sError message sent to client\n", response);
+        send(socket, response, strlen(response), 0);
+        return -1;
+    }
+
+    // update the Users table
+    double user_balance = -1;
+    snprintf(sql, sizeof(sql),
+            "SELECT usd_balance FROM Users WHERE ID=%d", user_id);
+
+    rc = sqlite3_exec(db, sql, getBalance_callback, &user_balance, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        handle_SQL_error(socket, zErrMsg);
+        return -1;
+    }
+    if (user_balance < 0) {
+        snprintf(response, sizeof(response),
+                 "404 User %d does not exist\n", user_id);
+        fprintf(stderr, "%sError message sent to client\n", response);
+        send(socket, response, strlen(response), 0);
+        return -1;
+    }
+
+    double new_user_balance = user_balance + shares_sold_USD;
+
+    snprintf(sql, sizeof(sql),
+    "UPDATE Users SET usd_balance=%f WHERE ID=%d", new_user_balance, user_id);
+
+    rc = sqlite3_exec(db, sql, nullptr, nullptr, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        handle_SQL_error(socket, zErrMsg);
+        return -1;
+    }
+
+    // update the Shares in the database
+    double new_num_of_shares = shares_owned - num_shares_to_sell;
+    snprintf(sql, sizeof(sql),
+            "UPDATE Stocks SET stock_balance=%f WHERE stock_symbol='%s' AND user_id=%d", new_num_of_shares, stock_symbol, user_id);
+    
+    rc = sqlite3_exec(db, sql, nullptr, nullptr, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        handle_SQL_error(socket, zErrMsg);
+        return -1;
+    }    
+
+    // Respond successful operation
+    snprintf(response, sizeof(response),
+             "200 OK\nSOLD: New balance: %.2f %s. USD balance $%.2f\n",
+             new_num_of_shares, stock_symbol, new_user_balance);
+    send(socket, response, strlen(response), 0);
 
     return 0;
 }
 
-
-int shutdown_command(int socket, char* request, sqlite3* db) {
-
-    // TODO
-
-    return 0;
-}
-
-
+/** Puts the results of the query into a string *data */
 static int list_callback(void *data, int argc, char **argv, char **azColName) {
     string* result = static_cast<string*>(data);
    
@@ -342,6 +457,7 @@ static int list_callback(void *data, int argc, char **argv, char **azColName) {
     return 0;
 }
 
+/** Lists every stock in the database. */
 int list_command(int socket, char* request, sqlite3* db) {
     /* default user id */
     int user_id = 1;
@@ -381,6 +497,7 @@ int list_command(int socket, char* request, sqlite3* db) {
     return 0;
 }
 
+/** Displays the balance for user 1 */
 int balance_command(int socket, char* request, sqlite3* db) {
     /* default user id */
     int user_id = 1;
@@ -440,6 +557,7 @@ int balance_command(int socket, char* request, sqlite3* db) {
     return 0;
 }
 
+/** Terminates the client */
 int quit_command(int socket, char* request, sqlite3* db) {
     /* acknowledge quit */
     const char* response = "200 OK\n";

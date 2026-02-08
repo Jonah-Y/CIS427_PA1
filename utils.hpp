@@ -4,7 +4,6 @@
 
 /** Callback function for the sqlite database.
  *  Prints each record processed in each SELECT statement executed within the SQL argument.
- *  From https://www.tutorialspoint.com/sqlite/sqlite_c_cpp.htm
  */
 int callback(void *data, int argc, char **argv, char **azColName);
 
@@ -28,14 +27,16 @@ void create_stocks(sqlite3* db);
  */
 int buy_command(int socket, char* request, sqlite3* db);
 
+/** Sells an amount of stock and responds to the client with the new balance. */
 int sell_command(int socket, char* request, sqlite3* db);
 
+/** Lists every stock in the database. */
 int list_command(int socket, char* request, sqlite3* db);
 
+/** Displays the balance for user 1 */
 int balance_command(int socket, char* request, sqlite3* db);
 
-int shutdown_command(int socket, char* request, sqlite3* db);
-
+/** Terminates the client */
 int quit_command(int socket, char* request, sqlite3* db);
 
 #endif

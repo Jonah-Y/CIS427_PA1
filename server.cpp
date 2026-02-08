@@ -81,7 +81,8 @@ int main(int argc, char* argv[]) {
 
 
     /* wait for connection, then receive and print text */
-    while(1) {
+    bool shutdown = false;
+    while(!shutdown) {
         printf("Waiting on connection\n");
         if ((new_s = accept(s, (struct sockaddr *)&sin, &addr_len)) < 0) {  
             perror("accept error");
@@ -97,13 +98,15 @@ int main(int argc, char* argv[]) {
             if (request.find("BUY", 0) == 0) {
                 buy_command(new_s, buf, db);
             } else if (request.find("SELL", 0) == 0) {
-                // call sell_command
+                sell_command(new_s, buf, db);
             } else if (request.find("LIST", 0) == 0) {
                 list_command(new_s, buf, db);
             } else if (request.find("BALANCE", 0) == 0) {
                 balance_command(new_s, buf, db);
             } else if (request.find("SHUTDOWN", 0) == 0) {
-                // call shutdown_command
+                quit_command(new_s, buf, db); //close client connection
+                shutdown = true;    // initiate shutdown
+                break;
             } else if (request.find("QUIT", 0) == 0) {
                 quit_command(new_s, buf, db);
                 break; // break from this while loop to close the connection and wait for new connection
