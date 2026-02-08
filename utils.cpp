@@ -7,6 +7,7 @@
 #include <sqlite3.h>
 #include <string>
 #include <sys/socket.h>    
+#include <unistd.h>
 
 using namespace std;
 
