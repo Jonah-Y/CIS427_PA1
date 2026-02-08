@@ -7,6 +7,7 @@
 #include <sqlite3.h>
 #include <string>
 #include <sys/socket.h>    
+#include <unistd.h>
 
 using namespace std;
 
@@ -299,7 +300,6 @@ int buy_command(int socket, char* request, sqlite3* db) {
         }
     }
 
-    // Respond successful operation
     snprintf(response, sizeof(response),
              "200 OK\nBOUGHT: New balance: %.2f %s. USD balance $%.2f\n",
              shares_owned + num_shares_to_buy, stock_symbol, user_balance);
@@ -308,7 +308,7 @@ int buy_command(int socket, char* request, sqlite3* db) {
     return 0;
 }
 
-/** Sells an amount of stock and responds to the client with the new balance. */
+
 int sell_command(int socket, char* request, sqlite3* db) {
     // parse input string
     char *saveptr = nullptr;
@@ -338,7 +338,7 @@ int sell_command(int socket, char* request, sqlite3* db) {
     double price_per_stock;
     int user_id;
     try {
-        num_shares_to_sell = stod(amount_str); // throws exception if conversion fails
+        num_shares_to_sell = stod(amount_str);
         price_per_stock = stod(price_str);
         user_id = stoi(user_id_str);
     } catch (const std::exception&) {
@@ -359,86 +359,99 @@ int sell_command(int socket, char* request, sqlite3* db) {
         return -1;
     }
 
-    // calculate price of sold shares
+    // calculate sale value
     double shares_sold_USD = num_shares_to_sell * price_per_stock;
 
-    // check if the stock is in the database and if so get the balance
-    double shares_owned = -1;
-
-    snprintf(sql, sizeof(sql),
-            "SELECT stock_balance FROM Stocks WHERE stock_symbol='%s' AND user_id=%d", stock_symbol, user_id);
-    
-    rc = sqlite3_exec(db, sql, getBalance_callback, &shares_owned, &zErrMsg);
-
-    if (rc != SQLITE_OK) {
-        handle_SQL_error(socket, zErrMsg);
-        return -1;
-    }
-    if (shares_owned < 0) {
-        snprintf(response, sizeof(response), "404 user %d does not own %s\n", user_id, stock_symbol);
-        fprintf(stderr, "%sError message sent to client\n", response);
-        send(socket, response, strlen(response), 0);
-        return -1;
-    }
-    if (shares_owned < num_shares_to_sell) {
-        snprintf(response, sizeof(response),
-                 "403 User has a insufficient shares of %.2f for a transaction of selling %.2f shares\n",
-                 shares_owned, num_shares_to_sell);
-        fprintf(stderr, "%sError message sent to client\n", response);
-        send(socket, response, strlen(response), 0);
-        return -1;
-    }
-
-    // update the Users table
+    // check if the user is in the database and if so get the balance
     double user_balance = -1;
-    snprintf(sql, sizeof(sql),
-            "SELECT usd_balance FROM Users WHERE ID=%d", user_id);
-
+    snprintf(sql, sizeof(sql), "SELECT usd_balance FROM Users WHERE ID=%d", user_id);
     rc = sqlite3_exec(db, sql, getBalance_callback, &user_balance, &zErrMsg);
+
     if (rc != SQLITE_OK) {
         handle_SQL_error(socket, zErrMsg);
         return -1;
     }
     if (user_balance < 0) {
-        snprintf(response, sizeof(response),
-                 "404 User %d does not exist\n", user_id);
+        snprintf(response, sizeof(response), "500 user %d does not exist\n", user_id);
         fprintf(stderr, "%sError message sent to client\n", response);
         send(socket, response, strlen(response), 0);
         return -1;
     }
 
-    double new_user_balance = user_balance + shares_sold_USD;
-
+    // Make sure the user actually owns this stock before trying to sell it
+    double shares_owned = -1;
     snprintf(sql, sizeof(sql),
-    "UPDATE Users SET usd_balance=%f WHERE ID=%d", new_user_balance, user_id);
+             "SELECT stock_balance FROM Stocks WHERE stock_symbol='%s' AND user_id=%d",
+             stock_symbol, user_id);
+    rc = sqlite3_exec(db, sql, getBalance_callback, &shares_owned, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        handle_SQL_error(socket, zErrMsg);
+        return -1;
+    }
 
+    if (shares_owned < 0) {
+        snprintf(response, sizeof(response), "403 User does not own any %s stock\n", stock_symbol);
+        fprintf(stderr, "%sError message sent to client\n", response);
+        send(socket, response, strlen(response), 0);
+        return -1;
+    }
+
+    if (shares_owned < num_shares_to_sell) {
+        snprintf(response, sizeof(response),
+                 "403 Not enough %s stock balance. You have %.2f shares but trying to sell %.2f\n",
+                 stock_symbol, shares_owned, num_shares_to_sell);
+        fprintf(stderr, "%sError message sent to client\n", response);
+        send(socket, response, strlen(response), 0);
+        return -1;
+    }
+
+    // Complete the sale: add money to user's account and remove shares from their portfolio
+    user_balance += shares_sold_USD;
+    snprintf(sql, sizeof(sql), "UPDATE Users SET usd_balance=%f WHERE ID=%d", user_balance, user_id);
     rc = sqlite3_exec(db, sql, nullptr, nullptr, &zErrMsg);
     if (rc != SQLITE_OK) {
         handle_SQL_error(socket, zErrMsg);
         return -1;
     }
 
-    // update the Shares in the database
-    double new_num_of_shares = shares_owned - num_shares_to_sell;
+    // update the Stocks table
+    double shares_owned_after_sale = shares_owned - num_shares_to_sell;
     snprintf(sql, sizeof(sql),
-            "UPDATE Stocks SET stock_balance=%f WHERE stock_symbol='%s' AND user_id=%d", new_num_of_shares, stock_symbol, user_id);
-    
+             "UPDATE Stocks SET stock_balance=%f WHERE stock_symbol='%s' AND user_id=%d",
+             shares_owned_after_sale, stock_symbol, user_id);
     rc = sqlite3_exec(db, sql, nullptr, nullptr, &zErrMsg);
     if (rc != SQLITE_OK) {
         handle_SQL_error(socket, zErrMsg);
         return -1;
-    }    
+    }
 
-    // Respond successful operation
     snprintf(response, sizeof(response),
              "200 OK\nSOLD: New balance: %.2f %s. USD balance $%.2f\n",
-             new_num_of_shares, stock_symbol, new_user_balance);
+             shares_owned_after_sale, stock_symbol, user_balance);
     send(socket, response, strlen(response), 0);
 
     return 0;
 }
 
-/** Puts the results of the query into a string *data */
+
+
+int shutdown_command(int socket, char* request, sqlite3* db) {
+    const char* response = "200 OK\n";
+    send(socket, response, strlen(response), 0);
+    
+    fprintf(stdout, "SHUTDOWN command received. Shutting down server...\n");
+    
+    // Close everything gracefully before server exits
+    close(socket);
+    sqlite3_close(db);
+    
+    fprintf(stdout, "Server shutdown complete.\n");
+    
+    // Return special code that tells the server to terminate completely
+    return -99;
+}
+
+
 static int list_callback(void *data, int argc, char **argv, char **azColName) {
     string* result = static_cast<string*>(data);
    
@@ -457,7 +470,6 @@ static int list_callback(void *data, int argc, char **argv, char **azColName) {
     return 0;
 }
 
-/** Lists every stock in the database. */
 int list_command(int socket, char* request, sqlite3* db) {
     /* default user id */
     int user_id = 1;
@@ -497,7 +509,6 @@ int list_command(int socket, char* request, sqlite3* db) {
     return 0;
 }
 
-/** Displays the balance for user 1 */
 int balance_command(int socket, char* request, sqlite3* db) {
     /* default user id */
     int user_id = 1;
@@ -557,7 +568,6 @@ int balance_command(int socket, char* request, sqlite3* db) {
     return 0;
 }
 
-/** Terminates the client */
 int quit_command(int socket, char* request, sqlite3* db) {
     /* acknowledge quit */
     const char* response = "200 OK\n";

@@ -81,8 +81,7 @@ int main(int argc, char* argv[]) {
 
 
     /* wait for connection, then receive and print text */
-    bool shutdown = false;
-    while(!shutdown) {
+    while(1) {
         printf("Waiting on connection\n");
         if ((new_s = accept(s, (struct sockaddr *)&sin, &addr_len)) < 0) {  
             perror("accept error");
@@ -93,8 +92,9 @@ int main(int argc, char* argv[]) {
             buf[buf_len-1] = '\0';
             printf("Recieved: %s\n", buf);
             fflush(stdout);
-
-            string request(buf);  //convert to string object to work with it easier
+            
+            string request(buf);
+            
             if (request.find("BUY", 0) == 0) {
                 buy_command(new_s, buf, db);
             } else if (request.find("SELL", 0) == 0) {
@@ -104,21 +104,24 @@ int main(int argc, char* argv[]) {
             } else if (request.find("BALANCE", 0) == 0) {
                 balance_command(new_s, buf, db);
             } else if (request.find("SHUTDOWN", 0) == 0) {
-                quit_command(new_s, buf, db); //close client connection
-                shutdown = true;    // initiate shutdown
-                break;
+                int result = shutdown_command(new_s, buf, db);
+                if (result == -99) {
+                    close(new_s);
+                    close(s);
+                    exit(0);
+                }
             } else if (request.find("QUIT", 0) == 0) {
                 quit_command(new_s, buf, db);
-                break; // break from this while loop to close the connection and wait for new connection
+                break;
             } else {
                 fprintf(stderr, "Invalid message request: %s\n", request.c_str());
                 const char* error_code = "400 invalid command\nPlease use BUY, SELL, LIST, BALANCE, SHUTDOWN, or QUIT commands\n";
                 send(new_s, error_code, strlen(error_code), 0);
             }
         }
-
         close(new_s);      
     }
+
 
     sqlite3_close(db);
     return 0;
