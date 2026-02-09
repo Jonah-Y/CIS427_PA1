@@ -21,6 +21,9 @@ and in another shell run:
 ##Each Student’s role:
 o Jonah: server.cpp, create_users(), create_stocks(), buy_command(), sell_command()
 
+ayat: list_command(), balance_command(), quit_command(), sell_command(), shutdown_command(), client.cpp 
+  server.cpp (SELL/SHUTDOWN integration) // Partner helped fixed my errors  with the commands 
+
 
 ##Bugs in the code:
 None
