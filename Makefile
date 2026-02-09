@@ -1,49 +1,27 @@
-# Makefile for CIS427_PA1 project
-CC = g++
-CCOMPILER = gcc
-TARGET = server
-CLIENT = client
-OBJS = server.o utils.o sqlite3.o
-CLIENT_OBJS = client.o
+all: server client
 
-# Flags
-CFLAGS = -Wall
-CXXFLAGS = -Wall
-LDFLAGS = -lpthread -ldl
+server: server.o utils.o sqlite3.o
+	g++ -o server server.o utils.o sqlite3.o -lpthread -ldl
 
-# Default target
-all: $(TARGET) $(CLIENT)
+client: client.o
+	g++ -o client client.o
 
-# Build the server
-$(TARGET): $(OBJS)
-	$(CC) -o $@ $(OBJS) $(LDFLAGS)
-
-# Build the client
-$(CLIENT): $(CLIENT_OBJS)
-	$(CC) -o $@ $(CLIENT_OBJS)
-
-# Compile SQLite as C (not C++)
 sqlite3.o: sqlite3.c sqlite3.h
-	$(CCOMPILER) -c sqlite3.c -o sqlite3.o
+	gcc -c sqlite3.c -o sqlite3.o
 
-# Compile server C++ files
 server.o: server.cpp utils.hpp
-	$(CC) -c server.cpp -o server.o
+	g++ -c server.cpp -o server.o
 
 utils.o: utils.cpp utils.hpp
-	$(CC) -c utils.cpp -o utils.o
+	g++ -c utils.cpp -o utils.o
 
-# Compile client
 client.o: client.cpp
-	$(CC) -c client.cpp -o client.o
+	g++ -c client.cpp -o client.o
 
-# Clean up
 clean:
-	rm -f $(OBJS) $(CLIENT_OBJS) $(TARGET) $(CLIENT) *.o
+	rm -f server.o utils.o sqlite3.o client.o server client
 
-# Run the server (optional)
-run: $(TARGET)
-	./$(TARGET)
+run: server
+	./server
 
-# Phony targets
 .PHONY: all clean run
