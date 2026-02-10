@@ -1,6 +1,6 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
-#include <sqlite3.h>
+#include "sqlite3.h"
 
 /** Callback function for the sqlite database.
  *  Prints each record processed in each SELECT statement executed within the SQL argument.

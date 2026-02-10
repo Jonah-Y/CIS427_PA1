@@ -4,7 +4,7 @@
 #include <cstring>
 #include <exception>
 #include <iostream>
-#include <sqlite3.h>
+#include "sqlite3.h"
 #include <string>
 #include <sys/socket.h>    
 #include <unistd.h>
@@ -518,6 +518,7 @@ int balance_command(int socket, char* request, sqlite3* db) {
    
     string response;
     char sql[256];
+
     snprintf(sql, sizeof(sql),
              "SELECT first_name, last_name, usd_balance FROM Users WHERE ID = %d;",
              user_id);

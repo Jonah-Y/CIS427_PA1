@@ -1,7 +1,7 @@
 #include <cstring>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sqlite3.h>
+#include "sqlite3.h"
 #include <strings.h>       
 #include <unordered_set>
 #include <string>
@@ -99,18 +99,18 @@ int main(int argc, char* argv[]) {
                 buy_command(new_s, buf, db);
             } else if (request.find("SELL", 0) == 0) {
                 sell_command(new_s, buf, db);
-            } else if (request.find("LIST", 0) == 0) {
+            } else if (request == "LIST") {
                 list_command(new_s, buf, db);
-            } else if (request.find("BALANCE", 0) == 0) {
+            } else if (request == "BALANCE") {
                 balance_command(new_s, buf, db);
-            } else if (request.find("SHUTDOWN", 0) == 0) {
+            } else if (request == "SHUTDOWN") {
                 int result = shutdown_command(new_s, buf, db);
                 if (result == -99) {
                     close(new_s);
                     close(s);
                     exit(0);
                 }
-            } else if (request.find("QUIT", 0) == 0) {
+            } else if (request == "QUIT") {
                 quit_command(new_s, buf, db);
                 break;
             } else {
