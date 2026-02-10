@@ -30,6 +30,9 @@ int buy_command(int socket, char* request, sqlite3* db);
 /** Sells an amount of stock and responds to the client with the new balance. */
 int sell_command(int socket, char* request, sqlite3* db);
 
+/** Shuts down the server and client. */
+int shutdown_command(int socket, char* request, sqlite3* db) ;
+
 /** Lists every stock in the database. */
 int list_command(int socket, char* request, sqlite3* db);
 

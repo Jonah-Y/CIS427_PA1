@@ -13,7 +13,6 @@ using namespace std;
 
 /** Callback function for the sqlite database.
  *  Prints each record processed in each SELECT statement executed within the SQL argument.
- *  From https://www.tutorialspoint.com/sqlite/sqlite_c_cpp.htm
  */
 int callback(void *data, int argc, char **argv, char **azColName) {
     fprintf(stderr, "%s: ", (const char*)data);
@@ -163,8 +162,7 @@ static int getBalance_callback(void *data, int argc, char **argv, char **azColNa
     return 0;
 }
 
-/** Logs the SQL error, send error message to the client, and free zErrMsg. 
- */
+/** Logs the SQL error, send error message to the client, and free zErrMsg. */
 static void handle_SQL_error(int socket, char* zErrMsg) {
     char response[256];
     snprintf(response, sizeof(response),"500 SQL error: %s\n", zErrMsg);
@@ -309,6 +307,7 @@ int buy_command(int socket, char* request, sqlite3* db) {
 }
 
 
+/** Sells an amount of stock and responds to the client with the new balance. */
 int sell_command(int socket, char* request, sqlite3* db) {
     // parse input string
     char *saveptr = nullptr;
@@ -434,7 +433,7 @@ int sell_command(int socket, char* request, sqlite3* db) {
 }
 
 
-
+/** Shuts down the server and client. */
 int shutdown_command(int socket, char* request, sqlite3* db) {
     const char* response = "200 OK\n";
     send(socket, response, strlen(response), 0);
@@ -451,7 +450,9 @@ int shutdown_command(int socket, char* request, sqlite3* db) {
     return -99;
 }
 
-
+/** Used with a SELECT statement call to sqlite3_exec.
+ *  It adds all the rows returned from the database to the data argument as a string
+ */
 static int list_callback(void *data, int argc, char **argv, char **azColName) {
     string* result = static_cast<string*>(data);
    
@@ -470,6 +471,7 @@ static int list_callback(void *data, int argc, char **argv, char **azColName) {
     return 0;
 }
 
+/** Lists every stock in the database. */
 int list_command(int socket, char* request, sqlite3* db) {
     /* default user id */
     int user_id = 1;
@@ -509,6 +511,7 @@ int list_command(int socket, char* request, sqlite3* db) {
     return 0;
 }
 
+/** Displays the balance for user 1 */
 int balance_command(int socket, char* request, sqlite3* db) {
     /* default user id */
     int user_id = 1;
@@ -568,6 +571,7 @@ int balance_command(int socket, char* request, sqlite3* db) {
     return 0;
 }
 
+/** Terminates the client */
 int quit_command(int socket, char* request, sqlite3* db) {
     /* acknowledge quit */
     const char* response = "200 OK\n";
