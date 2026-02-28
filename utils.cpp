@@ -6,7 +6,7 @@
 #include <iostream>
 #include "sqlite3.h"
 #include <string>
-#include <sys/socket.h>    
+#include <sys/socket.h>
 #include <unistd.h>
 
 using namespace std;
@@ -16,7 +16,6 @@ using namespace std;
  */
 int callback(void *data, int argc, char **argv, char **azColName) {
     fprintf(stderr, "%s: ", (const char*)data);
-
     for (int i = 0; i < argc; i++) {
         printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
     }
@@ -38,37 +37,36 @@ int count_rows(void *count, int argc, char **argv, char **azColName) {
 
 /** This creates the Users table if it doesn't exist and adds a default user
  *  if there are no users in the table.
+ *  Note: added UNIQUE to user_name so seed_pa2_users() INSERT OR IGNORE works correctly.
  */
 void create_users(sqlite3* db) {
     const char *sql;
     int rc;
     char *zErrMsg = 0;
 
-    // Create the Users table
-    sql = "CREATE TABLE IF NOT EXISTS Users (" \
-        "ID INTEGER PRIMARY KEY AUTOINCREMENT," \
-        "email TEXT NOT NULL," \
-        "first_name TEXT," \
-        "last_name TEXT," \
-        "user_name TEXT NOT NULL," \
-        "password TEXT," \
-        "usd_balance DOUBLE NOT NULL);" ;
+    sql = "CREATE TABLE IF NOT EXISTS Users ("
+          "ID INTEGER PRIMARY KEY AUTOINCREMENT,"
+          "email TEXT NOT NULL,"
+          "first_name TEXT,"
+          "last_name TEXT,"
+          "user_name TEXT NOT NULL UNIQUE,"
+          "password TEXT,"
+          "usd_balance DOUBLE NOT NULL);";
 
     rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
-    if( rc != SQLITE_OK ){
+    if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", zErrMsg);
         sqlite3_free(zErrMsg);
     } else {
         fprintf(stdout, "Users table created successfully\n");
     }
-    
-    // Check if there are any users and if not manually create one
+
     sql = "SELECT COUNT(*) FROM Users;";
     int user_count = 0;
     cout << "Checking user count" << endl;
 
     rc = sqlite3_exec(db, sql, count_rows, (void*) &user_count, &zErrMsg);
-    if( rc != SQLITE_OK ){
+    if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", zErrMsg);
         sqlite3_free(zErrMsg);
     } else {
@@ -78,11 +76,11 @@ void create_users(sqlite3* db) {
     if (user_count == 0) {
         fprintf(stdout, "Creating a user because no users currently exist\n");
 
-        sql = "INSERT INTO Users (ID, email, first_name, last_name, user_name, password, usd_balance)" \
-            "VALUES (1, 'joeshmoe@default.com', 'Joe', 'Shmoe', 'Default_User', 'password1', 100.00 );";
+        sql = "INSERT INTO Users (ID, email, first_name, last_name, user_name, password, usd_balance)"
+              "VALUES (1, 'joeshmoe@default.com', 'Joe', 'Shmoe', 'Default_User', 'password1', 100.00);";
 
         rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
-        if( rc != SQLITE_OK ){
+        if (rc != SQLITE_OK) {
             fprintf(stderr, "SQL error: %s\n", zErrMsg);
             sqlite3_free(zErrMsg);
         } else {
@@ -101,30 +99,28 @@ void create_stocks(sqlite3* db) {
     int rc;
     char *zErrMsg = 0;
 
-    // Create the Stocks table
-    sql = "CREATE TABLE IF NOT EXISTS Stocks (" \
-        "ID INTEGER PRIMARY KEY AUTOINCREMENT," \
-        "stock_symbol VARCHAR(4) NOT NULL," \
-        "stock_name VARCHAR(20) NOT NULL," \
-        "stock_balance DOUBLE," \
-        "user_id INTEGER," \
-        "FOREIGN KEY (user_id) REFERENCES Users (ID) );";
+    sql = "CREATE TABLE IF NOT EXISTS Stocks ("
+          "ID INTEGER PRIMARY KEY AUTOINCREMENT,"
+          "stock_symbol VARCHAR(4) NOT NULL,"
+          "stock_name VARCHAR(20) NOT NULL,"
+          "stock_balance DOUBLE,"
+          "user_id INTEGER,"
+          "FOREIGN KEY (user_id) REFERENCES Users (ID));";
 
     rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
-    if( rc != SQLITE_OK ){
+    if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", zErrMsg);
         sqlite3_free(zErrMsg);
     } else {
         fprintf(stdout, "Stocks table created successfully\n");
     }
 
-    // add stocks to the stocks table if it is empty
     sql = "SELECT COUNT(*) FROM Stocks;";
     int stock_count = 0;
     cout << "Checking if Stocks table has entries" << endl;
 
     rc = sqlite3_exec(db, sql, count_rows, (void*) &stock_count, &zErrMsg);
-    if( rc != SQLITE_OK ){
+    if (rc != SQLITE_OK) {
         fprintf(stderr, "SQL error: %s\n", zErrMsg);
         sqlite3_free(zErrMsg);
     } else {
@@ -134,17 +130,17 @@ void create_stocks(sqlite3* db) {
     if (stock_count == 0) {
         fprintf(stdout, "Inserting stocks for the default user because no stocks currently exist\n");
 
-        sql = "INSERT INTO Stocks (stock_symbol, stock_name, stock_balance, user_id) VALUES " \
-            "('AAPL', 'Apple', 0, 1), " \
-            "('MSFT', 'Microsoft', 0, 1), " \
-            "('AMZN', 'Amazon', 0, 1), " \
-            "('GOOG', 'Alphabet', 0, 1), "\
-            "('META', 'Meta', 0, 1), " \
-            "('NVDA', 'Nvidia', 0, 1), " \
-            "('TSLA', 'Tesla', 0, 1);";
+        sql = "INSERT INTO Stocks (stock_symbol, stock_name, stock_balance, user_id) VALUES "
+              "('AAPL', 'Apple', 0, 1), "
+              "('MSFT', 'Microsoft', 0, 1), "
+              "('AMZN', 'Amazon', 0, 1), "
+              "('GOOG', 'Alphabet', 0, 1), "
+              "('META', 'Meta', 0, 1), "
+              "('NVDA', 'Nvidia', 0, 1), "
+              "('TSLA', 'Tesla', 0, 1);";
 
         rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
-        if( rc != SQLITE_OK ){
+        if (rc != SQLITE_OK) {
             fprintf(stderr, "SQL error: %s\n", zErrMsg);
             sqlite3_free(zErrMsg);
         } else {
@@ -155,17 +151,83 @@ void create_stocks(sqlite3* db) {
     }
 }
 
-/** Used in conjunction with a SELECT statement to get the first value that will be balance  */
+/** PA2: Seeds the four required user accounts at startup.
+ *  Uses INSERT OR IGNORE so it's safe to call every time the server starts.
+ */
+void seed_pa2_users(sqlite3* db) {
+    struct { const char* uname; const char* pwd; } accounts[] = {
+        { "root", "Root01" },
+        { "mary", "Mary01" },
+        { "john", "John01" },
+        { "moe",  "Moe01"  }
+    };
+
+    char sql[512];
+    char *zErrMsg = nullptr;
+
+    for (auto& a : accounts) {
+        snprintf(sql, sizeof(sql),
+            "INSERT OR IGNORE INTO Users "
+            "(email, first_name, last_name, user_name, password, usd_balance) "
+            "VALUES ('%s@trade.com', '%s', 'User', '%s', '%s', 100.00);",
+            a.uname, a.uname, a.uname, a.pwd);
+
+        int rc = sqlite3_exec(db, sql, nullptr, nullptr, &zErrMsg);
+        if (rc != SQLITE_OK) {
+            fprintf(stderr, "[seed_pa2_users] Error seeding '%s': %s\n", a.uname, zErrMsg);
+            sqlite3_free(zErrMsg);
+            zErrMsg = nullptr;
+        } else {
+            fprintf(stdout, "[seed_pa2_users] Ensured user '%s' exists.\n", a.uname);
+        }
+    }
+}
+
+/** PA2: Captures the row ID returned from a successful login query. */
+static int login_id_callback(void* data, int argc, char** argv, char** /*cols*/) {
+    if (argc >= 1 && argv[0]) {
+        *static_cast<int*>(data) = atoi(argv[0]);
+    }
+    return 0;
+}
+
+/** PA2: Verifies username and password against the Users table.
+ *  Returns true on success and populates out_user_id with the matching row ID.
+ */
+bool verify_login(sqlite3* db, const string& username,
+                  const string& password, int& out_user_id)
+{
+    char sql[512];
+    snprintf(sql, sizeof(sql),
+        "SELECT ID FROM Users "
+        "WHERE LOWER(user_name) = LOWER('%s') AND password = '%s';",
+        username.c_str(), password.c_str());
+
+    out_user_id = -1;
+    char* zErrMsg = nullptr;
+
+    int rc = sqlite3_exec(db, sql, login_id_callback,
+                          static_cast<void*>(&out_user_id), &zErrMsg);
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "[verify_login] SQL error: %s\n", zErrMsg);
+        sqlite3_free(zErrMsg);
+        return false;
+    }
+
+    return (out_user_id != -1);
+}
+
+/** Used in conjunction with a SELECT statement to get the first value that will be balance. */
 static int getBalance_callback(void *data, int argc, char **argv, char **azColName) {
     double* balance = static_cast<double*>(data);
     *balance = atof(argv[0]);
     return 0;
 }
 
-/** Logs the SQL error, send error message to the client, and free zErrMsg. */
+/** Logs the SQL error, sends error message to the client, and frees zErrMsg. */
 static void handle_SQL_error(int socket, char* zErrMsg) {
     char response[256];
-    snprintf(response, sizeof(response),"500 SQL error: %s\n", zErrMsg);
+    snprintf(response, sizeof(response), "500 SQL error: %s\n", zErrMsg);
     fprintf(stderr, "%sError message sent to client\n", response);
     send(socket, response, strlen(response), 0);
     sqlite3_free(zErrMsg);
@@ -229,16 +291,10 @@ int buy_command(int socket, char* request, sqlite3* db) {
 
     // check if the user is in the database and if so get the balance
     double user_balance = -1;
-
-    snprintf(sql, sizeof(sql),
-            "SELECT usd_balance FROM Users WHERE ID=%d", user_id);
-    
+    snprintf(sql, sizeof(sql), "SELECT usd_balance FROM Users WHERE ID=%d", user_id);
     rc = sqlite3_exec(db, sql, getBalance_callback, &user_balance, &zErrMsg);
 
-    if (rc != SQLITE_OK) {
-        handle_SQL_error(socket, zErrMsg);
-        return -1;
-    }
+    if (rc != SQLITE_OK) { handle_SQL_error(socket, zErrMsg); return -1; }
     if (user_balance < 0) {
         snprintf(response, sizeof(response), "500 user %d does not exist\n", user_id);
         fprintf(stderr, "%sError message sent to client\n", response);
@@ -256,56 +312,39 @@ int buy_command(int socket, char* request, sqlite3* db) {
 
     // update the Users balance in the database
     user_balance -= shares_bought_USD;
-    snprintf(sql, sizeof(sql),
-            "UPDATE Users SET usd_balance=%f WHERE ID=%d", user_balance, user_id);
-
+    snprintf(sql, sizeof(sql), "UPDATE Users SET usd_balance=%f WHERE ID=%d", user_balance, user_id);
     rc = sqlite3_exec(db, sql, nullptr, nullptr, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        handle_SQL_error(socket, zErrMsg);
-        return -1;
-    }
+    if (rc != SQLITE_OK) { handle_SQL_error(socket, zErrMsg); return -1; }
 
     // update the Stocks table
     double shares_owned = -1;
     snprintf(sql, sizeof(sql),
-    "SELECT stock_balance FROM Stocks WHERE stock_symbol='%s' AND user_id=%d",
-            stock_symbol, user_id);
-
+             "SELECT stock_balance FROM Stocks WHERE stock_symbol='%s' AND user_id=%d",
+             stock_symbol, user_id);
     rc = sqlite3_exec(db, sql, getBalance_callback, &shares_owned, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        handle_SQL_error(socket, zErrMsg);
-        return -1;
-    }
+    if (rc != SQLITE_OK) { handle_SQL_error(socket, zErrMsg); return -1; }
 
-    if (shares_owned < 0) {  //indicates this stock is not in the database
+    if (shares_owned < 0) {  // indicates this stock is not in the database
         shares_owned = 0;
         snprintf(sql, sizeof(sql),
-             "INSERT INTO Stocks (stock_symbol, stock_name, stock_balance, user_id) VALUES ('%s', '%s', %f, %d);",
-             stock_symbol, stock_symbol, num_shares_to_buy, user_id);
+                 "INSERT INTO Stocks (stock_symbol, stock_name, stock_balance, user_id) VALUES ('%s', '%s', %f, %d);",
+                 stock_symbol, stock_symbol, num_shares_to_buy, user_id);
         rc = sqlite3_exec(db, sql, nullptr, nullptr, &zErrMsg);
-        if (rc != SQLITE_OK) {
-            handle_SQL_error(socket, zErrMsg);
-            return -1;
-        }
+        if (rc != SQLITE_OK) { handle_SQL_error(socket, zErrMsg); return -1; }
     } else {
         snprintf(sql, sizeof(sql),
-             "UPDATE Stocks SET stock_balance=%f WHERE stock_symbol='%s' AND user_id=%d",
-             shares_owned + num_shares_to_buy, stock_symbol, user_id);
+                 "UPDATE Stocks SET stock_balance=%f WHERE stock_symbol='%s' AND user_id=%d",
+                 shares_owned + num_shares_to_buy, stock_symbol, user_id);
         rc = sqlite3_exec(db, sql, nullptr, nullptr, &zErrMsg);
-        if (rc != SQLITE_OK) {
-            handle_SQL_error(socket, zErrMsg);
-            return -1;
-        }
+        if (rc != SQLITE_OK) { handle_SQL_error(socket, zErrMsg); return -1; }
     }
 
     snprintf(response, sizeof(response),
              "200 OK\nBOUGHT: New balance: %.2f %s. USD balance $%.2f\n",
              shares_owned + num_shares_to_buy, stock_symbol, user_balance);
     send(socket, response, strlen(response), 0);
-
     return 0;
 }
-
 
 /** Sells an amount of stock and responds to the client with the new balance. */
 int sell_command(int socket, char* request, sqlite3* db) {
@@ -365,11 +404,7 @@ int sell_command(int socket, char* request, sqlite3* db) {
     double user_balance = -1;
     snprintf(sql, sizeof(sql), "SELECT usd_balance FROM Users WHERE ID=%d", user_id);
     rc = sqlite3_exec(db, sql, getBalance_callback, &user_balance, &zErrMsg);
-
-    if (rc != SQLITE_OK) {
-        handle_SQL_error(socket, zErrMsg);
-        return -1;
-    }
+    if (rc != SQLITE_OK) { handle_SQL_error(socket, zErrMsg); return -1; }
     if (user_balance < 0) {
         snprintf(response, sizeof(response), "500 user %d does not exist\n", user_id);
         fprintf(stderr, "%sError message sent to client\n", response);
@@ -383,10 +418,7 @@ int sell_command(int socket, char* request, sqlite3* db) {
              "SELECT stock_balance FROM Stocks WHERE stock_symbol='%s' AND user_id=%d",
              stock_symbol, user_id);
     rc = sqlite3_exec(db, sql, getBalance_callback, &shares_owned, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        handle_SQL_error(socket, zErrMsg);
-        return -1;
-    }
+    if (rc != SQLITE_OK) { handle_SQL_error(socket, zErrMsg); return -1; }
 
     if (shares_owned < 0) {
         snprintf(response, sizeof(response), "403 User does not own any %s stock\n", stock_symbol);
@@ -394,7 +426,6 @@ int sell_command(int socket, char* request, sqlite3* db) {
         send(socket, response, strlen(response), 0);
         return -1;
     }
-
     if (shares_owned < num_shares_to_sell) {
         snprintf(response, sizeof(response),
                  "403 Not enough %s stock balance. You have %.2f shares but trying to sell %.2f\n",
@@ -408,10 +439,7 @@ int sell_command(int socket, char* request, sqlite3* db) {
     user_balance += shares_sold_USD;
     snprintf(sql, sizeof(sql), "UPDATE Users SET usd_balance=%f WHERE ID=%d", user_balance, user_id);
     rc = sqlite3_exec(db, sql, nullptr, nullptr, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        handle_SQL_error(socket, zErrMsg);
-        return -1;
-    }
+    if (rc != SQLITE_OK) { handle_SQL_error(socket, zErrMsg); return -1; }
 
     // update the Stocks table
     double shares_owned_after_sale = shares_owned - num_shares_to_sell;
@@ -419,165 +447,168 @@ int sell_command(int socket, char* request, sqlite3* db) {
              "UPDATE Stocks SET stock_balance=%f WHERE stock_symbol='%s' AND user_id=%d",
              shares_owned_after_sale, stock_symbol, user_id);
     rc = sqlite3_exec(db, sql, nullptr, nullptr, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        handle_SQL_error(socket, zErrMsg);
-        return -1;
-    }
+    if (rc != SQLITE_OK) { handle_SQL_error(socket, zErrMsg); return -1; }
 
     snprintf(response, sizeof(response),
              "200 OK\nSOLD: New balance: %.2f %s. USD balance $%.2f\n",
              shares_owned_after_sale, stock_symbol, user_balance);
     send(socket, response, strlen(response), 0);
-
     return 0;
 }
 
+/** Shuts down the server and client.
+ *  PA2 update: only root can shut down the server, non-root users receive a 403.
+ */
+int shutdown_command(int socket, char* request, sqlite3* db, bool is_root) {
+    if (!is_root) {
+        const char* denied = "403 Forbidden: only root can shut down the server\n";
+        fprintf(stderr, "[SHUTDOWN] Rejected: current user is not root.\n");
+        send(socket, denied, strlen(denied), 0);
+        return -1;
+    }
 
-/** Shuts down the server and client. */
-int shutdown_command(int socket, char* request, sqlite3* db) {
     const char* response = "200 OK\n";
     send(socket, response, strlen(response), 0);
-    
     fprintf(stdout, "SHUTDOWN command received. Shutting down server...\n");
-    
-    // Close everything gracefully before server exits
+
     close(socket);
     sqlite3_close(db);
-    
+
     fprintf(stdout, "Server shutdown complete.\n");
-    
-    // Return special code that tells the server to terminate completely
     return -99;
 }
 
 /** Used with a SELECT statement call to sqlite3_exec.
- *  It adds all the rows returned from the database to the data argument as a string
+ *  It adds all the rows returned from the database to the data argument as a string.
  */
 static int list_callback(void *data, int argc, char **argv, char **azColName) {
     string* result = static_cast<string*>(data);
-   
     for (int i = 0; i < argc; i++) {
         if (argv[i]) {
             *result += argv[i];
         } else {
             *result += "NULL";
         }
-        if (i < argc - 1) {
-            *result += " ";
-        }
+        if (i < argc - 1) *result += " ";
     }
     *result += "\n";
-   
     return 0;
 }
 
-/** Lists every stock in the database. */
-int list_command(int socket, char* request, sqlite3* db) {
-    /* default user id */
-    int user_id = 1;
-   
+/** Lists every stock in the database.
+ *  PA2 update: non-root users see only their own records, root sees all records with the owner's username.
+ */
+int list_command(int socket, char* request, sqlite3* db,
+                 int user_id, const string& username, bool is_root)
+{
     string response;
     string records;
+    char sql[512];
     char *zErrMsg = 0;
-   
-    /* query stocks for user */
-    char sql[256];
-    snprintf(sql, sizeof(sql),
-             "SELECT ID, stock_symbol, stock_balance, user_id FROM Stocks WHERE user_id = %d;",
-             user_id);
-   
-    int rc = sqlite3_exec(db, sql, list_callback, &records, &zErrMsg);
-   
-    if (rc != SQLITE_OK) {
-        response = "403 message format error\n";
-        response += "Database error: ";
-        response += zErrMsg;
-        response += "\n";
-        sqlite3_free(zErrMsg);
-    } else {
-        response = "200 OK\n";
-        response += "The list of records in the Stocks database for user ";
-        response += to_string(user_id);
-        response += ":\n";
-       
-        if (records.empty()) {
-            response += "(No stocks found)\n";
+
+    if (is_root) {
+        snprintf(sql, sizeof(sql),
+            "SELECT S.ID, S.stock_symbol, S.stock_balance, U.user_name "
+            "FROM Stocks S "
+            "JOIN Users U ON S.user_id = U.ID "
+            "ORDER BY S.ID;");
+
+        int rc = sqlite3_exec(db, sql, list_callback, &records, &zErrMsg);
+        if (rc != SQLITE_OK) {
+            response = "403 message format error\nDatabase error: ";
+            response += zErrMsg;
+            response += "\n";
+            sqlite3_free(zErrMsg);
         } else {
-            response += records;
+            response  = "200 OK\n";
+            response += "The list of records in the Stock database:\n";
+            response += records.empty() ? "(No stocks found)\n" : records;
+        }
+    } else {
+        snprintf(sql, sizeof(sql),
+            "SELECT ID, stock_symbol, stock_balance "
+            "FROM Stocks WHERE user_id = %d ORDER BY ID;",
+            user_id);
+
+        int rc = sqlite3_exec(db, sql, list_callback, &records, &zErrMsg);
+        if (rc != SQLITE_OK) {
+            response = "403 message format error\nDatabase error: ";
+            response += zErrMsg;
+            response += "\n";
+            sqlite3_free(zErrMsg);
+        } else {
+            response  = "200 OK\n";
+            response += "The list of records in the Stock database for ";
+            response += username;
+            response += ":\n";
+            response += records.empty() ? "(No stocks found)\n" : records;
         }
     }
-   
+
     send(socket, response.c_str(), response.length(), 0);
     return 0;
 }
 
-/** Displays the balance for user 1 */
-int balance_command(int socket, char* request, sqlite3* db) {
-    /* default user id */
-    int user_id = 1;
-   
+/** Displays the balance for the currently logged-in user.
+ *  PA2 update: uses the session user_id instead of the hardcoded value 1 from PA1.
+ */
+int balance_command(int socket, char* request, sqlite3* db, int user_id) {
     string response;
     char sql[256];
 
     snprintf(sql, sizeof(sql),
              "SELECT first_name, last_name, usd_balance FROM Users WHERE ID = %d;",
              user_id);
-   
+
     sqlite3_stmt *stmt;
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
-   
+
     if (rc != SQLITE_OK) {
-        response = "403 message format error\n";
+        response  = "403 message format error\n";
         response += "Database error: ";
         response += sqlite3_errmsg(db);
         response += "\n";
         send(socket, response.c_str(), response.length(), 0);
         return -1;
     }
-   
+
     rc = sqlite3_step(stmt);
-   
+
     if (rc == SQLITE_ROW) {
-        /* user found */
-        const char* first_name = (const char*)sqlite3_column_text(stmt, 0);
-        const char* last_name = (const char*)sqlite3_column_text(stmt, 1);
-        double usd_balance = sqlite3_column_double(stmt, 2);
-       
-        response = "200 OK\n";
+        const char* first_name  = (const char*)sqlite3_column_text(stmt, 0);
+        const char* last_name   = (const char*)sqlite3_column_text(stmt, 1);
+        double      usd_balance = sqlite3_column_double(stmt, 2);
+
+        response  = "200 OK\n";
         response += "Balance for user ";
         if (first_name) response += first_name;
         response += " ";
-        if (last_name) response += last_name;
-       
+        if (last_name)  response += last_name;
+
         char balance_str[50];
         snprintf(balance_str, sizeof(balance_str), ": $%.2f\n", usd_balance);
         response += balance_str;
-       
+
     } else if (rc == SQLITE_DONE) {
-        /* user not found */
-        response = "403 message format error\n";
+        response  = "403 message format error\n";
         response += "User ";
         response += to_string(user_id);
         response += " doesn't exist\n";
     } else {
-        /* database error */
-        response = "403 message format error\n";
+        response  = "403 message format error\n";
         response += "Database error: ";
         response += sqlite3_errmsg(db);
         response += "\n";
     }
-   
+
     sqlite3_finalize(stmt);
     send(socket, response.c_str(), response.length(), 0);
     return 0;
 }
 
-/** Terminates the client */
+/** Terminates the client. */
 int quit_command(int socket, char* request, sqlite3* db) {
-    /* acknowledge quit */
     const char* response = "200 OK\n";
     send(socket, response, strlen(response), 0);
-   
-    /* signal server to close connection */
     return 1;
 }

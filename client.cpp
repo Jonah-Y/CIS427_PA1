@@ -9,7 +9,7 @@
 #include <iostream>
 
 #define SERVER_PORT 5432
-#define MAX_LINE 256
+#define MAX_LINE    256
 
 using namespace std;
 
@@ -21,76 +21,78 @@ int main(int argc, char * argv[]) {
     char response[MAX_LINE * 10];
     int s;
     int len;
-   
+
     if (argc == 2) {
         host = argv[1];
     } else {
         fprintf(stderr, "usage: %s <hostname>\n", argv[0]);
         exit(1);
     }
-   
-    /* translate host name into IP address */
+
+    // Translate host name into IP address
     hp = gethostbyname(host);
     if (!hp) {
         fprintf(stderr, "client: unknown host: %s\n", host);
         exit(1);
     }
-   
-    /* build address structure */
+
+    // Build address structure
     bzero((char *)&sin, sizeof(sin));
     sin.sin_family = AF_INET;
     bcopy(hp->h_addr, (char *)&sin.sin_addr, hp->h_length);
     sin.sin_port = htons(SERVER_PORT);
-   
-    /* create socket */
+
+    // Create socket
     if ((s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
         perror("client: socket");
         exit(1);
     }
-   
-    /* connect to server */
+
+    // Connect to server
     if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
         perror("client: connect");
         close(s);
         exit(1);
     }
-   
+
     cout << "Connected to server" << endl;
-    cout << "available commands: BUY, SELL, LIST, BALANCE, QUIT, SHUTDOWN" << endl;
-    cout << "------------------------------------------------------------" << endl;
-   
-    /* main communication loop */
+    cout << "Available commands: LOGIN, LOGOUT, BUY, SELL, LIST, BALANCE, QUIT, SHUTDOWN" << endl;
+    cout << "--------------------------------------------------------------------------" << endl;
+
+    // Main send/receive loop
     while (fgets(buf, sizeof(buf), stdin)) {
         buf[MAX_LINE-1] = '\0';
         len = strlen(buf);
-       
+
         if (len <= 1) {
             continue;
         }
-       
-        /* send command */
-        send(s, buf, len, 0);
-        
-     bool is_quit = (strncmp(buf, "QUIT", 4) == 0)
-                    || (strncmp(buf, "SHUTDOWN" , 8) == 0);
 
-        /* receive response */
+        // Send command to server
+        send(s, buf, len, 0);
+
+        // After QUIT, LOGOUT, or SHUTDOWN the server will close the connection
+        bool will_disconnect = (strncmp(buf, "QUIT",     4) == 0)
+                            || (strncmp(buf, "LOGOUT",   6) == 0)
+                            || (strncmp(buf, "SHUTDOWN", 8) == 0);
+
+        // Receive and print the server's response
         memset(response, 0, sizeof(response));
         int bytes_received = recv(s, response, sizeof(response) - 1, 0);
-       
+
         if (bytes_received <= 0) {
             cout << "Server closed connection" << endl;
             break;
         }
-       
+
         fprintf(stdout, "%s", response);
-       
-        if (is_quit) {
+
+        if (will_disconnect) {
             cout << "Exiting client..." << endl;
             break;
         }
     }
-   
+
     close(s);
     return 0;
 }
